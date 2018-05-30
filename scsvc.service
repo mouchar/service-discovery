@@ -1,0 +1,11 @@
+[Unit]
+Requires=svc.service
+After=svc.service
+BindsTo=svc.service
+
+[Service]
+ExecStartPre=/usr/bin/sidecar wait_on svc
+ExecStartPre=/usr/bin/sidecar register svc
+ExecStart=/usr/bin/sidecar check svc
+ExecStop=/usr/bin/sidecar unregister svc
+ExecStop=/usr/bin/sidecar stop svc

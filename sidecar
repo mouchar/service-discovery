@@ -1,0 +1,61 @@
+#!/bin/bash
+# sidecar script that runs besides the main service
+# we use it to register/unregister in service discovery
+# (emulated by a simple file /tmp/sd.log here).
+# it is also responsible checking of the service health.
+# note that the script is mostly universal and with some
+# minor tweaks it could be used to monitor multiple
+# applications on a single host.
+
+sdstate=/tmp/sd.log
+timeout=10s
+checkinterval=30
+mydir=$(dirname "$0")
+
+[ $# -lt 2 ] && { echo "$0 cmd service" ; exit 1 ; }
+
+cmd=$1
+svc=$2
+ctlfile=/tmp/sidecar-$svc.ctl
+pidfile=/var/run/sidecar-$svc.pid
+
+case "$cmd" in
+    wait_on)
+        timeout $timeout "$mydir/run$svc" status
+        [ $? -eq 124 ] && exit 1
+        exit 0
+        ;;
+    register)
+        ts=$(date +"%Y%m%d %H:%M;%S")
+        # this is out "Service discovery" call :-)
+        echo "$ts Register $svc to SD" >> $sdstate
+        ;;
+    unregister)
+        ts=$(date +"%Y%m%d %H:%M;%S")
+        # this is out "Service discovery" call :-)
+        echo "$ts UNRegister $svc from SD" >> $sdstate
+        ;;
+    check)
+        trap "rm -f $ctlfile $pidfile" EXIT
+		echo $$ > $pidfile
+        while sleep $checkinterval ; do
+            "$mydir/run$svc" status || exit 1  # optionally, try to fix svc
+			[ -r $ctlfile ] && [ "$(cat $ctlfile)" == "stop" ] && break
+            # this is out "Service discovery" call :-)
+            echo "$(date +"%Y%m%d %H:%M;%S") Check passed for $svc" >> $sdstate
+        done
+		echo "Side car process will be stopped"
+        ;;
+	status)
+		[ -r $pidfile ] || exit 1
+		kill -0 $(cat $pidfile) || exit 1
+		exit 0
+		;;
+    stop)
+        $0 status $svc || exit 0
+		echo "stop" > $ctlfile
+        ;;
+    *)
+        echo "Unknown command $cmd"
+        exit 1
+esac

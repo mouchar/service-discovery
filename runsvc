@@ -1,0 +1,52 @@
+#!/bin/bash
+# This is a clumsy implementation of a long-running
+# service in bash - it has its own pid file and control
+# file that is used to stop application.
+# In real life, you should just use a regular startup
+# script of true application (web server, database, whatever)
+
+pidfile=/var/run/svc.pid
+ctlfile=/tmp/svcctl
+
+[ -z "$1" ] && { echo "Argument required" ; exit 1 ; }
+case "$1" in
+    start)
+        rm -f $ctlfile
+        # run our "service" SVC :-)
+        ( while sleep 5 ; do
+            logger "Hello from SVC"
+            [ -r $ctlfile ] && {
+                cmd=$(cat $ctlfile)
+                if [ "$cmd" == "stop" ] ; then
+                    echo "Stopping SVC"
+                    rm -f $ctlfile $pidfile
+                    break
+                fi
+            }
+          done
+        ) &
+        echo $! > $pidfile
+        echo "SVC is running"
+        wait $!
+        ;;
+    stop)
+        [ -r $pidfile ] || exit 0
+        pid=$(cat $pidfile)
+        [ -n "$pid" ] || { echo "Empty pid file"; exit 1; }
+        kill -0 "$pid" || { echo "Process $pid not found."; exit 1; }
+        echo "Stopping svc (pid $pid)"
+        echo stop > $ctlfile
+        ;;
+    status)
+        [ -r $pidfile ] || exit 1
+        pid=$(cat $pidfile)
+        [ -n "$pid" ] || { echo "Empty pid file"; exit 1; }
+		kill -0 "$pid" || exit 1
+        exit 0
+        ;;
+    *)
+        echo "unknown argument"
+        exit 1
+        ;;
+esac
+

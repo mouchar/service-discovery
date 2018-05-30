@@ -1,0 +1,8 @@
+[Unit]
+Requires=scsvc.service
+Before=scsvc.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/runsvc start
+ExecStop=/usr/bin/runsvc stop
